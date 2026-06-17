@@ -2,7 +2,7 @@
 
 An awk interpreter written in awk. Emulates the interpreter structure from scratch while using awk's built in string, math, and I/O primitives.
 
-The implementation reads awk source code and executes it against input data. It includes a lexer, parser, regex engine, field splitter, virtual machine, and all built in functions. All written in awk. The end goal is for AWK Meta to compile and execute its own source code. Not only as a demonstration of cleverness but as proof that awk primitives are expressive enough to implement the full awk language.
+The implementation reads awk source code and executes it against input data. It includes a lexer, parser, regex engine, field splitter, virtual machine, and all built in functions. All written in awk. The end goal is for AWK Meta AWK to interpret its own source code. Not only as a demonstration of cleverness but as proof that awk primitives are expressive enough to implement the full awk language.
 
 ## The approach
 

@@ -1,5 +1,900 @@
 #!/usr/bin/awk -f
-#This project implements a complete awk interpreter (lexer, parser, regex engine, field splitter, VM, built ins) written in awk itself.
-#The interpreter structure is emulated from scratch while using awk's built in string, math, and I/O primitives.
-#Target: self execution where the interpreter executes its own source.
+#This project implements a complete awk interpreter (lexer, parser, regex engine, field splitter, VM, built ins) written in awk itself. The interpreter structure is emulated from scratch while using awk's built in string, math, and I/O primitives.
 #License GPL3 Copyright (C) 2026 Ivan Gaydardzhiev
+
+function kw_init( i) {
+	kw["BEGIN"] = 100
+	kw["END"] = 101
+	kw["if"] = 102
+	kw["else"] = 103
+	kw["while"] = 104
+	kw["for"] = 105
+	kw["in"] = 106
+	kw["do"] = 107
+	kw["next"] = 108
+	kw["exit"] = 109
+	kw["return"] = 110
+	kw["print"] = 111
+	kw["printf"] = 112
+	kw["getline"] = 113
+	kw["delete"] = 114
+	kw["function"] = 115
+}
+
+function lx_skip(c) {
+	while (sp <= slen) {
+		c = substr(src, sp, 1)
+		if (c == " " || c == "\t" || c == "\r")
+			sp++
+		else if (c == "#") {
+			while (sp <= slen && substr(src, sp, 1) != "\n")
+				sp++
+		} else
+			break
+	}
+}
+
+function lx_num(s, c) {
+	s = ""
+	while (sp <= slen) {
+		c = substr(src, sp, 1)
+		if (c ~ /[0-9]/ || (c == "." && index(s, ".") == 0) ||
+		    ((c == "e" || c == "E") && length(s) > 0) ||
+		    ((c == "+" || c == "-") && length(s) > 0 &&
+		     (substr(s, length(s), 1) == "e" || substr(s, length(s), 1) == "E"))) {
+			s = s c
+			sp++
+		} else
+			break
+	}
+	return s
+}
+
+function lx_str(s, c, esc) {
+	sp++
+	s = ""
+	while (sp <= slen) {
+		c = substr(src, sp, 1)
+		sp++
+		if (c == "\\") {
+			esc = substr(src, sp, 1)
+			sp++
+			if      (esc == "n")  s = s "\n"
+			else if (esc == "t")  s = s "\t"
+			else if (esc == "r")  s = s "\r"
+			else if (esc == "\\") s = s "\\"
+			else if (esc == "\"") s = s "\""
+			else if (esc == "/")  s = s "/"
+			else                  s = s "\\" esc
+		} else if (c == "\"")
+			break
+		else
+			s = s c
+	}
+	return s
+}
+
+function lx_re(s, c) {
+	sp++
+	s = ""
+	while (sp <= slen) {
+		c = substr(src, sp, 1)
+		sp++
+		if (c == "\\") {
+			s = s c substr(src, sp, 1)
+			sp++
+		} else if (c == "/")
+			break
+		else
+			s = s c
+	}
+	return s
+}
+
+function lx_id(s, c) {
+	s = ""
+	while (sp <= slen) {
+		c = substr(src, sp, 1)
+		if (c ~ /[a-zA-Z0-9_]/) {
+			s = s c
+			sp++
+		} else
+			break
+	}
+	return s
+}
+
+function lx_one(c, c2, t, v) {
+	lx_skip()
+	if (sp > slen) {
+		tok[tc,"t"] = 0
+		tok[tc,"v"] = ""
+		tc++
+		return
+	}
+	c  = substr(src, sp, 1)
+	c2 = substr(src, sp+1, 1)
+	t  = -1
+	v  = ""
+
+	if (c == "\n") {
+		t = 6; v = "\n"; sp++
+	} else if (c ~ /[0-9]/ || (c == "." && c2 ~ /[0-9]/)) {
+		t = 1; v = lx_num()
+	} else if (c == "\"") {
+		t = 2; v = lx_str()
+	} else if (c ~ /[a-zA-Z_]/) {
+		v = lx_id()
+		t = (v in kw) ? kw[v] : 4
+	} else if (c == "$") {
+		t = 238; v = "$"; sp++
+	} else if (c == "+" && c2 == "+") { t = 213; v = "++"; sp += 2
+	} else if (c == "-" && c2 == "-") { t = 214; v = "--"; sp += 2
+	} else if (c == "+" && c2 == "=") { t = 207; v = "+="; sp += 2
+	} else if (c == "-" && c2 == "=") { t = 208; v = "-="; sp += 2
+	} else if (c == "*" && c2 == "=") { t = 209; v = "*="; sp += 2
+	} else if (c == "/" && c2 == "=") { t = 210; v = "/="; sp += 2
+	} else if (c == "%" && c2 == "=") { t = 211; v = "%="; sp += 2
+	} else if (c == "^" && c2 == "=") { t = 212; v = "^="; sp += 2
+	} else if (c == "=" && c2 == "=") { t = 215; v = "=="; sp += 2
+	} else if (c == "!" && c2 == "=") { t = 216; v = "!="; sp += 2
+	} else if (c == "<" && c2 == "=") { t = 218; v = "<="; sp += 2
+	} else if (c == ">" && c2 == "=") { t = 220; v = ">="; sp += 2
+	} else if (c == "&" && c2 == "&") { t = 221; v = "&&"; sp += 2
+	} else if (c == "|" && c2 == "|") { t = 222; v = "||"; sp += 2
+	} else if (c == "!" && c2 == "~") { t = 227; v = "!~"; sp += 2
+	} else if (c == ">" && c2 == ">") { t = 229; v = ">>"; sp += 2
+	} else if (c == "+") { t = 200; v = "+";  sp++
+	} else if (c == "-") { t = 201; v = "-";  sp++
+	} else if (c == "*") { t = 202; v = "*";  sp++
+	} else if (c == "/") {
+		t = 203; v = "/"; sp++
+	} else if (c == "%") { t = 204; v = "%";  sp++
+	} else if (c == "^") { t = 205; v = "^";  sp++
+	} else if (c == "=") { t = 206; v = "=";  sp++
+	} else if (c == "<") { t = 217; v = "<";  sp++
+	} else if (c == ">") { t = 219; v = ">";  sp++
+	} else if (c == "~") { t = 226; v = "~";  sp++
+	} else if (c == "!") { t = 223; v = "!";  sp++
+	} else if (c == "?") { t = 224; v = "?";  sp++
+	} else if (c == ":") { t = 225; v = ":";  sp++
+	} else if (c == "|") { t = 228; v = "|";  sp++
+	} else if (c == ";") { t = 230; v = ";";  sp++
+	} else if (c == ",") { t = 231; v = ",";  sp++
+	} else if (c == "{") { t = 232; v = "{";  sp++
+	} else if (c == "}") { t = 233; v = "}";  sp++
+	} else if (c == "(") { t = 234; v = "(";  sp++
+	} else if (c == ")") { t = 235; v = ")";  sp++
+	} else if (c == "[") { t = 236; v = "[";  sp++
+	} else if (c == "]") { t = 237; v = "]";  sp++
+	} else {
+		sp++
+	}
+	tok[tc,"t"] = t
+	tok[tc,"v"] = v
+	tc++
+}
+
+function lx_all(i) {
+	tc = 0
+	sp = 1
+	while (sp <= slen)
+		lx_one()
+	lx_one()
+}
+
+function pt()  {
+	return tok[tp,"t"]
+}
+
+function pv()  {
+	return tok[tp,"v"]
+}
+
+function skip_nl() {
+	while (pt() == 6) tp++
+}
+
+function eat(t) {
+	if (pt() != t) {
+		printf "parse error: expected %d got %d (%s) at token %d\n", t, pt(), pv(), tp | "cat >&2"
+		exit 1
+	}
+	tp++
+}
+
+function eat_semi() {
+	while (pt() == 6 || pt() == 230) tp++
+}
+
+function emit(op, v, a, i) {
+	i = ic
+	inst[i,"op"] = op
+	inst[i,"v"]  = v
+	inst[i,"a"]  = a
+	ic++
+	return i
+}
+
+function p_program(t) {
+	skip_nl()
+	while (pt() != 0) {
+		t = pt()
+		if (t == 115) {
+			p_funcdef()
+		} else if (t == 100) {
+			tp++
+			eat(232)
+			p_block()
+			eat(233)
+		} else if (t == 101) {
+			tp++
+			eat(232)
+			p_block()
+			eat(233)
+		} else if (t == 203 || t == 3) {
+			tp++
+			eat(232)
+			p_block()
+			eat(233)
+		} else {
+			p_stmt()
+		}
+		skip_nl()
+	}
+}
+
+function p_funcdef(nm, na, i) {
+	eat(115)
+	nm = pv(); eat(4)
+	eat(234)
+	na = 0
+	fn[nm] = ic
+	while (pt() != 235) {
+		if (na > 0) eat(231)
+		fnp[nm,na] = pv(); eat(4)
+		na++
+	}
+	fna[nm] = na
+	eat(235)
+	skip_nl()
+	eat(232)
+	p_block()
+	eat(233)
+	emit(23, "", 0)
+}
+
+function p_block() {
+	skip_nl()
+	while (pt() != 233 && pt() != 0) {
+		p_stmt()
+		skip_nl()
+	}
+}
+
+function p_stmt(t, jf, jmp, ji) {
+	t = pt()
+	if (t == 102) {
+		tp++
+		eat(234)
+		p_expr()
+		eat(235)
+		jf = emit(21, "", 0)
+		skip_nl()
+		eat(232)
+		p_block()
+		eat(233)
+		if (pt() == 103) {
+			tp++
+			jmp = emit(20, "", 0)
+			inst[jf,"a"] = ic
+			skip_nl()
+			eat(232)
+			p_block()
+			eat(233)
+			inst[jmp,"a"] = ic
+		} else {
+			inst[jf,"a"] = ic
+		}
+	} else if (t == 104) {
+		tp++
+		ji = ic
+		eat(234)
+		p_expr()
+		eat(235)
+		jf = emit(21, "", 0)
+		skip_nl()
+		eat(232)
+		p_block()
+		eat(233)
+		emit(20, "", ji)
+		inst[jf,"a"] = ic
+	} else if (t == 110) {
+		tp++
+		if (pt() != 230 && pt() != 6 && pt() != 233)
+			p_expr()
+		else
+			emit(0, "", 0)
+		emit(23, "", 0)
+		eat_semi()
+	} else if (t == 108) {
+		tp++
+		emit(28, "", 0)
+		eat_semi()
+	} else if (t == 109) {
+		tp++
+		if (pt() != 230 && pt() != 6 && pt() != 233)
+			p_expr()
+		else
+			emit(0, "", 0)
+		emit(29, "", 0)
+		eat_semi()
+	} else if (t == 111) {
+		p_print()
+	} else if (t == 112) {
+		p_printf()
+	} else if (t == 114) {
+		tp++
+		p_expr()
+		emit(33, "", 0)
+		eat_semi()
+	} else {
+		p_expr()
+		emit(2, pv(), 0)
+		eat_semi()
+	}
+}
+
+function p_print(ac, i) {
+	eat(111)
+	ac = 0
+	if (pt() != 230 && pt() != 6 && pt() != 233 && pt() != 0) {
+		p_expr()
+		ac++
+		while (pt() == 231) {
+			tp++
+			p_expr()
+			ac++
+		}
+	}
+	emit(24, "", ac)
+	eat_semi()
+}
+
+function p_printf(ac) {
+	eat(112)
+	ac = 0
+	p_expr()
+	ac++
+	while (pt() == 231) {
+		tp++
+		p_expr()
+		ac++
+	}
+	emit(25, "", ac)
+	eat_semi()
+}
+
+function p_expr() {
+	p_assign()
+}
+
+function p_assign(t, nm) {
+	p_ternary()
+}
+
+function p_ternary() {
+	p_or()
+}
+
+function p_or(jf, jmp) {
+	p_and()
+	while (pt() == 222) {
+		tp++
+		jf = emit(21, "", 0)
+		p_and()
+		jmp = emit(20, "", 0)
+		inst[jf,"a"] = ic
+		emit(0, "1", 0)
+		inst[jmp,"a"] = ic
+	}
+}
+
+function p_and(jf, jmp) {
+	p_match()
+	while (pt() == 221) {
+		tp++
+		jf = emit(21, "", 0)
+		p_match()
+		jmp = emit(20, "", 0)
+		inst[jf,"a"] = ic
+		emit(0, "0", 0)
+		inst[jmp,"a"] = ic
+	}
+}
+
+function p_match() {
+	p_cmp()
+	if (pt() == 226) {
+		tp++
+		p_cmp()
+		emit(26, "", 0)
+	} else if (pt() == 227) {
+		tp++
+		p_cmp()
+		emit(27, "", 0)
+	}
+}
+
+function p_cmp(t) {
+	p_concat()
+	t = pt()
+	if (t == 215) { tp++; p_concat(); emit(10, "", 0)
+	} else if (t == 216) { tp++; p_concat(); emit(11, "", 0)
+	} else if (t == 217) { tp++; p_concat(); emit(12, "", 0)
+	} else if (t == 218) { tp++; p_concat(); emit(13, "", 0)
+	} else if (t == 219) { tp++; p_concat(); emit(14, "", 0)
+	} else if (t == 220) { tp++; p_concat(); emit(15, "", 0)
+	}
+}
+
+function p_concat() {
+	p_add()
+	while (pt() == 1 || pt() == 2 || pt() == 4 || pt() == 234) {
+		p_add()
+		emit(9, "", 0)
+	}
+}
+
+function p_add(t) {
+	p_mul()
+	while (1) {
+		t = pt()
+		if (t == 200) { tp++; p_mul(); emit(3, "", 0)
+		} else if (t == 201) { tp++; p_mul(); emit(4, "", 0)
+		} else break
+	}
+}
+
+function p_mul(t) {
+	p_unary()
+	while (1) {
+		t = pt()
+		if (t == 202) { tp++; p_unary(); emit(5, "", 0)
+		} else if (t == 203) { tp++; p_unary(); emit(6, "", 0)
+		} else if (t == 204) { tp++; p_unary(); emit(7, "", 0)
+		} else break
+	}
+}
+
+function p_unary(t) {
+	t = pt()
+	if (t == 201) { tp++; p_pow(); emit(19, "", 0)
+	} else if (t == 223) { tp++; p_pow(); emit(18, "", 0)
+	} else p_pow()
+}
+
+function p_pow() {
+	p_postfix()
+	if (pt() == 205) {
+		tp++
+		p_unary()
+		emit(8, "", 0)
+	}
+}
+
+function p_postfix(nm, ac) {
+	p_primary()
+	if (pt() == 213) {
+		tp++
+		emit(0, "1", 0)
+		emit(3, "", 0)
+	} else if (pt() == 214) {
+		tp++
+		emit(0, "1", 0)
+		emit(4, "", 0)
+	}
+}
+
+function p_primary(t, v, ac, i) {
+	t = pt()
+	v = pv()
+	if (t == 1) {
+		tp++
+		emit(0, v, 0)
+	} else if (t == 2) {
+		tp++
+		emit(0, v, 0)
+	} else if (t == 3) {
+		tp++
+		emit(0, v, 0)
+	} else if (t == 4) {
+		tp++
+		if (pt() == 234) {
+			tp++
+			ac = 0
+			while (pt() != 235) {
+				if (ac > 0) eat(231)
+				p_expr()
+				ac++
+			}
+			eat(235)
+			emit(22, v, ac)
+		} else if (pt() == 236) {
+			tp++
+			p_expr()
+			eat(237)
+			emit(1, v, 1)
+		} else {
+			emit(1, v, 0)
+		}
+	} else if (t == 238) {
+		tp++
+		p_primary()
+		emit(30, "", 0)
+	} else if (t == 234) {
+		tp++
+		p_expr()
+		eat(235)
+	} else if (t == 213) {
+		tp++
+		v = pv(); eat(4)
+		emit(1, v, 0)
+		emit(0, "1", 0)
+		emit(3, "", 0)
+		emit(2, v, 0)
+	} else if (t == 214) {
+		tp++
+		v = pv(); eat(4)
+		emit(1, v, 0)
+		emit(0, "1", 0)
+		emit(4, "", 0)
+		emit(2, v, 0)
+	} else {
+		printf "parse error: unexpected token %d (%s)\n", t, v | "cat >&2"
+		exit 1
+	}
+}
+
+function re_compile(pat, nc) {
+	nc = 0
+	re_pos = 1
+	re_pat = pat
+	re_len = length(pat)
+	return re_alt(nc)
+}
+
+function re_alt(nc, left, right, s) {
+	left = re_seq(nc)
+	if (re_pos <= re_len && substr(re_pat, re_pos, 1) == "|") {
+		re_pos++
+		right = re_alt(nc)
+		s = nc++
+		nfa[s,"op"] = 2
+		nfa[s,"o1"] = left
+		nfa[s,"o2"] = right
+		return s
+	}
+	return left
+}
+
+function re_seq(nc, h, t, n) {
+	h = re_quant(nc)
+	t = h
+	while (re_pos <= re_len) {
+		c = substr(re_pat, re_pos, 1)
+		if (c == ")" || c == "|")
+			break
+		n = re_quant(nc)
+		nfa[t,"next"] = n
+		t = n
+	}
+	return h
+}
+
+function re_quant(nc, n, s, q) {
+	n = re_atom(nc)
+	if (re_pos > re_len)
+		return n
+	q = substr(re_pat, re_pos, 1)
+	if (q == "*" || q == "+" || q == "?") {
+		re_pos++
+		s = nc++
+		nfa[s,"op"] = 2
+		nfa[s,"o1"] = n
+		nfa[s,"o2"] = -1
+		return s
+	}
+	return n
+}
+
+function re_atom(nc, c, s) {
+	if (re_pos > re_len)
+		return -1
+	c = substr(re_pat, re_pos, 1)
+	re_pos++
+	if (c == "(") {
+		s = re_alt(nc)
+		re_pos++
+		return s
+	} else if (c == ".") {
+		s = nc++
+		nfa[s,"op"] = 1
+		return s
+	} else if (c == "[") {
+		return re_class(nc)
+	} else if (c == "\\") {
+		c = substr(re_pat, re_pos, 1)
+		re_pos++
+		s = nc++
+		nfa[s,"op"] = 0
+		nfa[s,"c"]  = c
+		return s
+	} else {
+		s = nc++
+		nfa[s,"op"] = 0
+		nfa[s,"c"]  = c
+		return s
+	}
+}
+
+function re_class(nc, s, cls, c) {
+	s = nc++
+	cls = ""
+	if (re_pos <= re_len && substr(re_pat, re_pos, 1) == "^") {
+		nfa[s,"neg"] = 1
+		re_pos++
+	}
+	while (re_pos <= re_len) {
+		c = substr(re_pat, re_pos, 1)
+		re_pos++
+		if (c == "]") break
+		cls = cls c
+	}
+	nfa[s,"op"]  = 4
+	nfa[s,"cls"] = cls
+	return s
+}
+
+function re_match(str, start, nfa_start, pos, c, st) {
+	pos = start
+	st  = nfa_start
+	while (st != -1 && pos <= length(str)) {
+		c = substr(str, pos, 1)
+		if (nfa[st,"op"] == 0) {
+			if (c != nfa[st,"c"]) return -1
+			pos++
+			st = nfa[st,"next"]
+		} else if (nfa[st,"op"] == 1) {
+			pos++
+			st = nfa[st,"next"]
+		} else if (nfa[st,"op"] == 3) {
+			return pos - start
+		} else {
+			return -1
+		}
+	}
+	return pos - start
+}
+
+function fs_split(rec, fs, n, i, p, m, f) {
+	delete fields
+	nf = 0
+	if (fs == " ") {
+		n = split(rec, f)
+		for (i = 1; i <= n; i++) fields[i] = f[i]
+		nf = n
+	} else {
+		p = 1
+		while (p <= length(rec)) {
+			m = index(substr(rec, p), fs)
+			if (m == 0) {
+				fields[++nf] = substr(rec, p)
+				break
+			} else {
+				fields[++nf] = substr(rec, p, m - 1)
+				p += m + length(fs) - 1
+			}
+		}
+	}
+	fields[0] = rec
+}
+
+function vm_push(v) {
+	stk[++sv] = v
+}
+
+function vm_pop()   {
+	return stk[sv--]
+}
+
+function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
+	i = entry
+	while (1) {
+		op = inst[i,"op"]
+		v  = inst[i,"v"]
+		a  = inst[i,"a"]
+		if (op == 0) {
+			vm_push(v)
+			i++
+		} else if (op == 1) {
+			if (a == 1) {
+				k = vm_pop()
+				vm_push(arr[v, k])
+			} else
+				vm_push(var[v])
+			i++
+		} else if (op == 2) {
+			r = vm_pop()
+			var[v] = r
+			vm_push(r)
+			i++
+		} else if (op == 3) {
+			r = vm_pop(); l = vm_pop(); vm_push(l + r); i++
+		} else if (op == 4) {
+			r = vm_pop(); l = vm_pop(); vm_push(l - r); i++
+		} else if (op == 5) {
+			r = vm_pop(); l = vm_pop(); vm_push(l * r); i++
+		} else if (op == 6) {
+			r = vm_pop(); l = vm_pop(); vm_push(l / r); i++
+		} else if (op == 7) {
+			r = vm_pop(); l = vm_pop(); vm_push(l % r); i++
+		} else if (op == 8) {
+			r = vm_pop(); l = vm_pop(); vm_push(l ^ r); i++
+		} else if (op == 9) {
+			r = vm_pop(); l = vm_pop(); vm_push(l r); i++
+		} else if (op == 10) {
+			r = vm_pop(); l = vm_pop(); vm_push(l == r ? 1 : 0); i++
+		} else if (op == 11) {
+			r = vm_pop(); l = vm_pop(); vm_push(l != r ? 1 : 0); i++
+		} else if (op == 12) {
+			r = vm_pop(); l = vm_pop(); vm_push(l <  r ? 1 : 0); i++
+		} else if (op == 13) {
+			r = vm_pop(); l = vm_pop(); vm_push(l <= r ? 1 : 0); i++
+		} else if (op == 14) {
+			r = vm_pop(); l = vm_pop(); vm_push(l >  r ? 1 : 0); i++
+		} else if (op == 15) {
+			r = vm_pop(); l = vm_pop(); vm_push(l >= r ? 1 : 0); i++
+		} else if (op == 16) {
+			r = vm_pop(); l = vm_pop(); vm_push((l && r) ? 1 : 0); i++
+		} else if (op == 17) {
+			r = vm_pop(); l = vm_pop(); vm_push((l || r) ? 1 : 0); i++
+		} else if (op == 18) {
+			l = vm_pop(); vm_push(!l ? 1 : 0); i++
+		} else if (op == 19) {
+			l = vm_pop(); vm_push(-l); i++
+		} else if (op == 20) {
+			i = a
+		} else if (op == 21) {
+			b = vm_pop()
+			if (!b) i = a; else i++
+		} else if (op == 22) {
+			nm = v
+			ac = a
+			vm_run_call(nm, ac)
+			i++
+		} else if (op == 23) {
+			ret = vm_pop()
+			return
+		} else if (op == 24) {
+			ac = a
+			if (ac == 0) {
+				print fields[0]
+			} else {
+				r = ""
+				for (j = ac; j >= 1; j--) {
+					if (j < ac) r = OFS r
+					r = vm_pop() r
+				}
+				print r
+			}
+			i++
+		} else if (op == 25) {
+			ac = a
+			r = ""
+			for (j = ac; j >= 1; j--) {
+				if (j < ac) r = " " r
+				r = vm_pop() r
+			}
+			printf r
+			i++
+		} else if (op == 26) {
+			r = vm_pop(); l = vm_pop()
+			vm_push((l ~ r) ? 1 : 0); i++
+		} else if (op == 27) {
+			r = vm_pop(); l = vm_pop()
+			vm_push((l !~ r) ? 1 : 0); i++
+		} else if (op == 28) {
+			next
+		} else if (op == 29) {
+			r = vm_pop(); exit r
+		} else if (op == 30) {
+			j = vm_pop()
+			vm_push(fields[j])
+			i++
+		} else if (op == 31) {
+			r = vm_pop(); j = vm_pop()
+			fields[j] = r
+			i++
+		} else if (op == 32) {
+			k = vm_pop(); nm = vm_pop()
+			vm_push((nm SUBSEP k) in arr ? 1 : 0)
+			i++
+		} else if (op == 33) {
+			nm = vm_pop()
+			delete arr[nm]
+			i++
+		} else {
+			printf "vm: unknown opcode %d\n", op | "cat >&2"
+			exit 1
+		}
+	}
+}
+
+function vm_run_call(nm, ac, j, save_sv, args, k) {
+	if (nm == "length") {
+		if (ac == 0) vm_push(length(fields[0]))
+		else { l = vm_pop(); vm_push(length(l)) }
+		return
+	} else if (nm == "substr") {
+		if (ac == 2) { l = vm_pop(); r = vm_pop(); vm_push(substr(r, l)) }
+		else { b = vm_pop(); l = vm_pop(); r = vm_pop(); vm_push(substr(r, l, b)) }
+		return
+	} else if (nm == "index") {
+		r = vm_pop(); l = vm_pop(); vm_push(index(l, r)); return
+	} else if (nm == "split") {
+		r = vm_pop(); l = vm_pop()
+		vm_push(split(l, arr[r], " ")); return
+	} else if (nm == "sprintf") {
+		r = ""
+		for (j = ac; j >= 1; j--) r = vm_pop() " " r
+		vm_push(sprintf(r)); return
+	} else if (nm == "sin")  { vm_push(sin(vm_pop()));  return
+	} else if (nm == "cos")  { vm_push(cos(vm_pop()));  return
+	} else if (nm == "exp")  { vm_push(exp(vm_pop()));  return
+	} else if (nm == "log")  { vm_push(log(vm_pop()));  return
+	} else if (nm == "sqrt") { vm_push(sqrt(vm_pop())); return
+	} else if (nm == "int")  { vm_push(int(vm_pop()));  return
+	} else if (nm == "rand") { vm_push(rand());         return
+	} else if (nm == "srand"){ srand(vm_pop());         return
+	} else if (nm == "atan2"){ r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
+	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
+	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
+	}
+
+	if (!(nm in fn)) {
+		printf "vm: undefined function %s\n", nm | "cat >&2"
+		exit 1
+	}
+	save_sv = sv
+	for (j = 0; j < ac; j++) args[j] = stk[sv - ac + 1 + j]
+	sv -= ac
+	for (j = 0; j < fna[nm]; j++) var[fnp[nm,j]] = (j < ac ? args[j] : "")
+	vm_run(fn[nm])
+	vm_push(ret)
+	sv = save_sv - ac + 1
+	stk[sv] = ret
+}
+
+BEGIN {
+	kw_init()
+	src  = ""
+	slen = 0
+	tc   = 0
+	tp   = 0
+	ic   = 0
+	sv   = 0
+}
+
+{
+	src = src $0 "\n"
+}
+
+END {
+	slen = length(src)
+	lx_all()
+	tp = 0
+	p_program()
+	if ("BEGIN" in fn) vm_run(fn["BEGIN"])
+	if ("END" in fn) vm_run(fn["END"])
+}
