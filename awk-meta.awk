@@ -224,11 +224,13 @@ function p_program(t) {
 			p_funcdef()
 		} else if (t == 100) {
 			tp++
+			fn["BEGIN"] = ic
 			eat(232)
 			p_block()
 			eat(233)
 		} else if (t == 101) {
 			tp++
+			fn["END"] = ic
 			eat(232)
 			p_block()
 			eat(233)
@@ -395,7 +397,7 @@ function p_or(jf, jmp) {
 		p_and()
 		jmp = emit(20, "", 0)
 		inst[jf,"a"] = ic
-		emit(0, "1", 0)
+		emit(0, 1, 0)
 		inst[jmp,"a"] = ic
 	}
 }
@@ -408,7 +410,7 @@ function p_and(jf, jmp) {
 		p_match()
 		jmp = emit(20, "", 0)
 		inst[jf,"a"] = ic
-		emit(0, "0", 0)
+		emit(0, 0, 0)
 		inst[jmp,"a"] = ic
 	}
 }
@@ -487,11 +489,11 @@ function p_postfix(nm, ac) {
 	p_primary()
 	if (pt() == 213) {
 		tp++
-		emit(0, "1", 0)
+		emit(0, 1, 0)
 		emit(3, "", 0)
 	} else if (pt() == 214) {
 		tp++
-		emit(0, "1", 0)
+		emit(0, 1, 0)
 		emit(4, "", 0)
 	}
 }
@@ -540,14 +542,14 @@ function p_primary(t, v, ac, i) {
 		tp++
 		v = pv(); eat(4)
 		emit(1, v, 0)
-		emit(0, "1", 0)
+		emit(0, 1, 0)
 		emit(3, "", 0)
 		emit(2, v, 0)
 	} else if (t == 214) {
 		tp++
 		v = pv(); eat(4)
 		emit(1, v, 0)
-		emit(0, "1", 0)
+		emit(0, 1, 0)
 		emit(4, "", 0)
 		emit(2, v, 0)
 	} else {
@@ -767,7 +769,7 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			i = a
 		} else if (op == 21) {
 			b = vm_pop()
-			if (!b) i = a; else i++
+			if (b) i = a; else i++
 		} else if (op == 22) {
 			nm = v
 			ac = a
@@ -861,7 +863,6 @@ function vm_run_call(nm, ac, j, save_sv, args, k) {
 	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
 	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
 	}
-
 	if (!(nm in fn)) {
 		printf "vm: undefined function %s\n", nm | "cat >&2"
 		exit 1
