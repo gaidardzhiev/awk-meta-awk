@@ -37,7 +37,7 @@ What you see is awk. What runs is your awk interpreter in awk.
 
 ## The implementation
 
-[awk-meta.awk](./awk-meta.awk) is the single file. It contains:
+[awk-meta.awk](./awk-meta.awk) is the single file. It will contain:
 
 1. **Lexer**: single `lx_one` function consuming one token at a time from a byte buffer. Identifies keywords via string comparison against null-terminated keyword strings. Returns a token structure allocated from a bump arena.
 
@@ -64,6 +64,61 @@ Consider, in this strict sense, the curious specimen [awk-meta.awk](./awk-meta.a
 When a leviathan of commerce lays claim to this term, converting a notion that arises from analysis and proof into a gloss of branding, we confront an act that might properly be called semantic vandalism. A signifier, born of mathematical necessity and the Structure of Computation, is torn from its context and refashioned as market rhetoric. Were Gödel, Turing, or von Neumann to witness this transmutation, they would discern not ingenuity but a degradation: the careful instrument of thought reduced to a slogan, precision dissolved into the currency of persuasion.
 
 To reclaim "meta" is, therefore, an ethical labor as much as an intellectual one. It is fidelity to the exactitude of mathematical speech and a modest form of resistance against the profanation of rigorous terms for profit. Let us refuse the surrender of those names and relations that constitute the very grammar of computation; to defend them is to defend the conditions under which clear thought is possible.
+
+## Implementation status
+
+What the interpreter currently executes correctly, verified against GNU Awk 5.3.2.
+
+**Expressions**
+- Arithmetic: `+` `-` `*` `/` `%` `^`
+- Comparison: `==` `!=` `<` `<=` `>` `>=`
+- Boolean: `&&` `||` `!`
+- String concatenation (juxtaposition)
+- Ternary: `cond ? a : b`
+- Assignment: `=` `+=` `-=` `*=` `/=` `%=` `^=`
+- Increment/decrement: prefix `++x` `--x`, postfix `x++` `x--`
+- Regex match: `~` `!~` with literal `/pat/` or string
+- Array membership: `k in arr`
+- Unary negation: `-x`
+
+**Variables and arrays**
+- Scalar variables with numeric and string semantics
+- Associative arrays: `a[k] = v`, `a[k]` read, `k in a`, `delete a[k]`
+- `split(str, arr)` populating an array by whitespace
+
+**Control flow**
+- `if (cond) stmt`
+- `if (cond) stmt else stmt`
+- `while (cond) stmt`
+- `for (init; cond; post) stmt`
+- All control forms accept a single statement or a `{ block }`
+- `return expr` from user functions
+- `next` (skip to next record)
+- `exit`
+
+**Functions**
+- User defined functions with positional parameters and local variables (extra params)
+- Recursion with correct parameter isolation across call depth
+- Built ins: `print`, `printf`, `sprintf` (up to 8 args), `substr`, `index`, `length`, `split`, `tolower`, `toupper`, `sin`, `cos`, `atan2`, `log`, `exp`, `sqrt`, `int`, `rand`, `srand`
+
+**Program structure**
+- `BEGIN { }` and `END { }` blocks
+- `/regex/ { }` pattern-action rules
+- Unconditional `{ }` rules
+- Record dispatch loop with `NR`, `NF`, `$0`--`$NF` set per record
+- Multiple input files via command-line arguments
+
+**Lexer**
+- Context sensitive `/` disambiguation: lexed as regex literal after `=` `~` `!~` `(` `,` `{` `;` `print` `return`, otherwise as division
+
+**Not yet implemented**
+- `for (k in arr)` iteration
+- `sub()`, `gsub()`, `match()`
+- `getline` in expression context
+- `delete arr` (whole array)
+- `printf` / `print` to file or pipe (`> "file"`, `| "cmd"`)
+- `FILENAME`, `FS`, `OFS`, `ORS`, `RS` special variables
+- Pass by reference arrays in user defined functions
 
 ## License
 
