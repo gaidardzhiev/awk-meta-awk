@@ -4,6 +4,16 @@ An awk interpreter written in awk. Emulates the interpreter structure from scrat
 
 The implementation reads awk source code and executes it against input data. It includes a lexer, parser, regex engine, field splitter, virtual machine, and all built in functions. All written in awk. The end goal is for AWK Meta AWK to interpret its own source code. Not only as a demonstration of cleverness but as proof that awk primitives are expressive enough to implement the full awk language.
 
+## On the Dilution of Meaning: A Philosophical Inquiry into Semantic Vandalism
+
+The term "meta", from the Greek μετά, which signifies "beyond," "after," and, with a gravity borne of precision, "about itself", names not fashion but a formal relation: self reference. It is the predicate by which a system may hold and utter of itself the truths it embodies; the interpreter that reads and reenacts its own source; the tongue that prescribes its laws and thereby brings into being its own interpreter. In such cases language and machine fold inward upon themselves, and the boundary between sign and interpreter dissolves into a single, rigorous economy of meaning.
+
+Consider, in this strict sense, the curious specimen [awk-meta.awk](./awk-meta.awk): an awk interpreter wrought in awk. Here is no mere metaphor but an exacting demonstration, the language enfolds its own mechanism; the interpreter is contained within the syntax that gives it life. Such instances belong to the architecture of computation itself, to the subtle edifice of logic and to the theorems that trace the limits of formal systems.
+
+When a leviathan of commerce lays claim to this term, converting a notion that arises from analysis and proof into a gloss of branding, we confront an act that might properly be called semantic vandalism. A signifier, born of mathematical necessity and the Structure of Computation, is torn from its context and refashioned as market rhetoric. Were Gödel, Turing, or von Neumann to witness this transmutation, they would discern not ingenuity but a degradation: the careful instrument of thought reduced to a slogan, precision dissolved into the currency of persuasion.
+
+To reclaim "meta" is, therefore, an ethical labor as much as an intellectual one. It is fidelity to the exactitude of mathematical speech and a modest form of resistance against the profanation of rigorous terms for profit. Let us refuse the surrender of those names and relations that constitute the very grammar of computation; to defend them is to defend the conditions under which clear thought is possible.
+
 ## The approach
 
 One interpreter: the awk interpreter. It reads awk source, parses it into instructions, and executes those instructions against input records. No intermediate representation. No optimization passes. The parser produces instruction sequences directly. The VM walks them once.
@@ -54,16 +64,6 @@ What you see is awk. What runs is your awk interpreter in awk.
 Forward calls including recursion are patched in a single pass at the end of parsing. All calling convention logic lives in three functions: `emit_fn_entry`, `emit_fn_exit`, `emit_call`. They do not duplicate each other.
 
 Runtime provides internal functions, registered in function table and called via the VM like any other function.
-
-## On the Dilution of Meaning: A Philosophical Inquiry into Semantic Vandalism
-
-The term "meta", from the Greek μετά, which signifies "beyond," "after," and, with a gravity borne of precision, "about itself", names not fashion but a formal relation: self reference. It is the predicate by which a system may hold and utter of itself the truths it embodies; the interpreter that reads and reenacts its own source; the tongue that prescribes its laws and thereby brings into being its own interpreter. In such cases language and machine fold inward upon themselves, and the boundary between sign and interpreter dissolves into a single, rigorous economy of meaning.
-
-Consider, in this strict sense, the curious specimen [awk-meta.awk](./awk-meta.awk): an awk interpreter wrought in awk. Here is no mere metaphor but an exacting demonstration, the language enfolds its own mechanism; the interpreter is contained within the syntax that gives it life. Such instances belong to the architecture of computation itself, to the subtle edifice of logic and to the theorems that trace the limits of formal systems.
-
-When a leviathan of commerce lays claim to this term, converting a notion that arises from analysis and proof into a gloss of branding, we confront an act that might properly be called semantic vandalism. A signifier, born of mathematical necessity and the Structure of Computation, is torn from its context and refashioned as market rhetoric. Were Gödel, Turing, or von Neumann to witness this transmutation, they would discern not ingenuity but a degradation: the careful instrument of thought reduced to a slogan, precision dissolved into the currency of persuasion.
-
-To reclaim "meta" is, therefore, an ethical labor as much as an intellectual one. It is fidelity to the exactitude of mathematical speech and a modest form of resistance against the profanation of rigorous terms for profit. Let us refuse the surrender of those names and relations that constitute the very grammar of computation; to defend them is to defend the conditions under which clear thought is possible.
 
 ## Implementation status
 
