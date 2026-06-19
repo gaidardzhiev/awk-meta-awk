@@ -16,7 +16,7 @@ To reclaim "meta" is, therefore, an ethical labor as much as an intellectual one
 
 ## The approach
 
-One interpreter: the awk interpreter. It reads awk source, parses it into instructions, and executes those instructions against input records. No intermediate representation. No optimization passes. The parser produces instruction sequences directly. The VM walks them once.
+One interpreter: the awk interpreter. It reads awk source, parses it into instructions, and executes those instructions against input records. No intermediate representation or silly optimization passes. The parser produces instruction sequences directly. The VM walks them once.
 
 Everything manual in the interpreter:
 - Lexer: character by character token parsing
