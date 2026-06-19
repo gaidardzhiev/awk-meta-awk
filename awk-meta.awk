@@ -180,9 +180,9 @@ function lx_all(i, prev_t) {
 	while (sp <= slen) {
 		lx_one()
 		if (tok[tc-1,"t"] == 203) {
-			if (prev_t == 0   || prev_t == 226 || prev_t == 227 ||
+			if (prev_t == 0 || prev_t == 226 || prev_t == 227 ||
 			    prev_t == 206 || prev_t == 231 || prev_t == 234 ||
-			    prev_t == 232 || prev_t == 230 || prev_t == 6   ||
+			    prev_t == 232 || prev_t == 230 || prev_t == 6 ||
 			    prev_t == 111 || prev_t == 112) {
 				sp--
 				tok[tc-1,"t"] = 3
@@ -603,7 +603,12 @@ function p_primary(t, v, ac, i) {
 			ac = 0
 			while (pt() != 235) {
 				if (ac > 0) eat(231)
-				p_expr()
+				if (v == "split" && ac == 1) {
+					emit(0, pv(), 0)
+					eat(4)
+				} else {
+					p_expr()
+				}
 				ac++
 			}
 			eat(235)
@@ -891,7 +896,7 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 		} else if (op == 25) {
 			ac = a
 			for (j = ac; j >= 1; j--) pfarg[j] = vm_pop()
-			if      (ac == 1) printf pfarg[1]
+			if (ac == 1) printf pfarg[1]
 			else if (ac == 2) printf pfarg[1], pfarg[2]
 			else if (ac == 3) printf pfarg[1], pfarg[2], pfarg[3]
 			else if (ac == 4) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4]
@@ -974,8 +979,8 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 	} else if (nm == "sqrt") { vm_push(sqrt(vm_pop())); return
 	} else if (nm == "int") { vm_push(int(vm_pop())); return
 	} else if (nm == "rand") { vm_push(rand()); return
-	} else if (nm == "srand") { srand(vm_pop()); return
-	} else if (nm == "atan2") { r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
+	} else if (nm == "srand"){ srand(vm_pop()); return
+	} else if (nm == "atan2"){ r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
 	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
 	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
 	}

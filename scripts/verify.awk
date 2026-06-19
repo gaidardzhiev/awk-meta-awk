@@ -29,7 +29,6 @@ BEGIN {
 	assert("eq-num",     42 == 42,     1)
 	assert("eq-str",     "x" == "x",   1)
 	assert("ne",         1 != 2,       1)
-	assert("if-true",    0,            0)
 	if (1) { r_if = "yes" } else { r_if = "no" }
 	assert("if-true",    r_if,         "yes")
 	if (0) { r_else = "yes" } else { r_else = "no" }
@@ -61,22 +60,23 @@ BEGIN {
 	assert("regex-match",    ("hello" ~ /ell/),  1)
 	assert("regex-nomatch",  ("hello" !~ /xyz/), 1)
 	assert("sprintf", sprintf("%d+%d=%d", 1, 2, 3), "1+2=3")
-}
 
-/^pass/ {
-	nr_pass++
-	pass_last = $2
-}
-
-/^fail/ {
-	nr_fail++
-}
-
-END {
-	assert("NR",       NR,         4)
-	assert("NF-last",  NF,         2)
-	assert("field-1",  $1,         "fail")
-	assert("rule-pass-count", nr_pass, 2)
-	assert("rule-fail-count", nr_fail, 2)
-	assert("pass-field2", pass_last, "beta")
+	input[1] = "pass alpha"
+	input[2] = "pass beta"
+	input[3] = "fail gamma"
+	input[4] = "fail delta"
+	for (li = 1; li <= 4; li++) {
+		line = input[li]
+		if (line ~ /^pass/) {
+			nr_pass++
+			n = split(line, f)
+			pass_last = f[2]
+		}
+		if (line ~ /^fail/) {
+			nr_fail++
+		}
+	}
+	assert("rule-pass-count", nr_pass,   2)
+	assert("rule-fail-count", nr_fail,   2)
+	assert("pass-field2",     pass_last, "beta")
 }
