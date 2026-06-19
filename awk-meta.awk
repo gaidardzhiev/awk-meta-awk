@@ -59,13 +59,13 @@ function lx_str(s, c, esc) {
 		if (c == "\\") {
 			esc = substr(src, sp, 1)
 			sp++
-			if      (esc == "n")  s = s "\n"
-			else if (esc == "t")  s = s "\t"
-			else if (esc == "r")  s = s "\r"
+			if (esc == "n") s = s "\n"
+			else if (esc == "t") s = s "\t"
+			else if (esc == "r") s = s "\r"
 			else if (esc == "\\") s = s "\\"
 			else if (esc == "\"") s = s "\""
-			else if (esc == "/")  s = s "/"
-			else                  s = s "\\" esc
+			else if (esc == "/") s = s "/"
+			else s = s "\\" esc
 		} else if (c == "\"")
 			break
 		else
@@ -116,7 +116,6 @@ function lx_one(c, c2, t, v) {
 	c2 = substr(src, sp+1, 1)
 	t  = -1
 	v  = ""
-
 	if (c == "\n") {
 		t = 6; v = "\n"; sp++
 	} else if (c ~ /[0-9]/ || (c == "." && c2 ~ /[0-9]/)) {
@@ -144,29 +143,28 @@ function lx_one(c, c2, t, v) {
 	} else if (c == "|" && c2 == "|") { t = 222; v = "||"; sp += 2
 	} else if (c == "!" && c2 == "~") { t = 227; v = "!~"; sp += 2
 	} else if (c == ">" && c2 == ">") { t = 229; v = ">>"; sp += 2
-	} else if (c == "+") { t = 200; v = "+";  sp++
-	} else if (c == "-") { t = 201; v = "-";  sp++
-	} else if (c == "*") { t = 202; v = "*";  sp++
-	} else if (c == "/") {
-		t = 203; v = "/"; sp++
-	} else if (c == "%") { t = 204; v = "%";  sp++
-	} else if (c == "^") { t = 205; v = "^";  sp++
-	} else if (c == "=") { t = 206; v = "=";  sp++
-	} else if (c == "<") { t = 217; v = "<";  sp++
-	} else if (c == ">") { t = 219; v = ">";  sp++
-	} else if (c == "~") { t = 226; v = "~";  sp++
-	} else if (c == "!") { t = 223; v = "!";  sp++
-	} else if (c == "?") { t = 224; v = "?";  sp++
-	} else if (c == ":") { t = 225; v = ":";  sp++
-	} else if (c == "|") { t = 228; v = "|";  sp++
-	} else if (c == ";") { t = 230; v = ";";  sp++
-	} else if (c == ",") { t = 231; v = ",";  sp++
-	} else if (c == "{") { t = 232; v = "{";  sp++
-	} else if (c == "}") { t = 233; v = "}";  sp++
-	} else if (c == "(") { t = 234; v = "(";  sp++
-	} else if (c == ")") { t = 235; v = ")";  sp++
-	} else if (c == "[") { t = 236; v = "[";  sp++
-	} else if (c == "]") { t = 237; v = "]";  sp++
+	} else if (c == "+") { t = 200; v = "+"; sp++
+	} else if (c == "-") { t = 201; v = "-"; sp++
+	} else if (c == "*") { t = 202; v = "*"; sp++
+	} else if (c == "/") { t = 203; v = "/"; sp++
+	} else if (c == "%") { t = 204; v = "%"; sp++
+	} else if (c == "^") { t = 205; v = "^"; sp++
+	} else if (c == "=") { t = 206; v = "="; sp++
+	} else if (c == "<") { t = 217; v = "<"; sp++
+	} else if (c == ">") { t = 219; v = ">"; sp++
+	} else if (c == "~") { t = 226; v = "~"; sp++
+	} else if (c == "!") { t = 223; v = "!"; sp++
+	} else if (c == "?") { t = 224; v = "?"; sp++
+	} else if (c == ":") { t = 225; v = ":"; sp++
+	} else if (c == "|") { t = 228; v = "|"; sp++
+	} else if (c == ";") { t = 230; v = ";"; sp++
+	} else if (c == ",") { t = 231; v = ","; sp++
+	} else if (c == "{") { t = 232; v = "{"; sp++
+	} else if (c == "}") { t = 233; v = "}"; sp++
+	} else if (c == "(") { t = 234; v = "("; sp++
+	} else if (c == ")") { t = 235; v = ")"; sp++
+	} else if (c == "[") { t = 236; v = "["; sp++
+	} else if (c == "]") { t = 237; v = "]"; sp++
 	} else {
 		sp++
 	}
@@ -175,11 +173,24 @@ function lx_one(c, c2, t, v) {
 	tc++
 }
 
-function lx_all(i) {
+function lx_all(i, prev_t) {
 	tc = 0
 	sp = 1
-	while (sp <= slen)
+	prev_t = 0
+	while (sp <= slen) {
 		lx_one()
+		if (tok[tc-1,"t"] == 203) {
+			if (prev_t == 0   || prev_t == 226 || prev_t == 227 ||
+			    prev_t == 206 || prev_t == 231 || prev_t == 234 ||
+			    prev_t == 232 || prev_t == 230 || prev_t == 6   ||
+			    prev_t == 111 || prev_t == 112) {
+				sp--
+				tok[tc-1,"t"] = 3
+				tok[tc-1,"v"] = lx_re()
+			}
+		}
+		prev_t = tok[tc-1,"t"]
+	}
 	lx_one()
 }
 
@@ -216,7 +227,7 @@ function emit(op, v, a, i) {
 	return i
 }
 
-function p_program(t) {
+function p_program(t, pat, entry) {
 	skip_nl()
 	while (pt() != 0) {
 		t = pt()
@@ -228,17 +239,35 @@ function p_program(t) {
 			eat(232)
 			p_block()
 			eat(233)
+			emit(34, "", 0)
 		} else if (t == 101) {
 			tp++
 			fn["END"] = ic
 			eat(232)
 			p_block()
 			eat(233)
+			emit(34, "", 0)
 		} else if (t == 203 || t == 3) {
+			pat = pv()
 			tp++
+			entry = ic
 			eat(232)
 			p_block()
+			emit(34, "", 0)
 			eat(233)
+			rules[rc,"pat"]   = pat
+			rules[rc,"type"]  = "r"
+			rules[rc,"entry"] = entry
+			rc++
+		} else if (t == 232) {
+			eat(232)
+			entry = ic
+			p_block()
+			emit(34, "", 0)
+			eat(233)
+			rules[rc,"type"]  = "u"
+			rules[rc,"entry"] = entry
+			rc++
 		} else {
 			p_stmt()
 		}
@@ -267,10 +296,21 @@ function p_funcdef(nm, na, i) {
 }
 
 function p_block() {
-	skip_nl()
+	eat_semi()
 	while (pt() != 233 && pt() != 0) {
 		p_stmt()
-		skip_nl()
+		eat_semi()
+	}
+}
+
+function p_body() {
+	skip_nl()
+	if (pt() == 232) {
+		eat(232)
+		p_block()
+		eat(233)
+	} else {
+		p_stmt()
 	}
 }
 
@@ -282,18 +322,12 @@ function p_stmt(t, jf, jmp, ji) {
 		p_expr()
 		eat(235)
 		jf = emit(21, "", 0)
-		skip_nl()
-		eat(232)
-		p_block()
-		eat(233)
+		p_body()
 		if (pt() == 103) {
 			tp++
 			jmp = emit(20, "", 0)
 			inst[jf,"a"] = ic
-			skip_nl()
-			eat(232)
-			p_block()
-			eat(233)
+			p_body()
 			inst[jmp,"a"] = ic
 		} else {
 			inst[jf,"a"] = ic
@@ -305,12 +339,31 @@ function p_stmt(t, jf, jmp, ji) {
 		p_expr()
 		eat(235)
 		jf = emit(21, "", 0)
-		skip_nl()
-		eat(232)
-		p_block()
-		eat(233)
+		p_body()
 		emit(20, "", ji)
 		inst[jf,"a"] = ic
+	} else if (t == 105) {
+		tp++
+		eat(234)
+		if (pt() != 230) p_expr()
+		eat_semi()
+		ji_cond = ic
+		if (pt() != 230) {
+			p_expr()
+			jf = emit(21, "", 0)
+		} else {
+			jf = -1
+		}
+		eat_semi()
+		jmp_body = emit(20, "", 0)
+		ji_post = ic
+		if (pt() != 235) p_expr()
+		eat(235)
+		emit(20, "", ji_cond)
+		inst[jmp_body,"a"] = ic
+		p_body()
+		emit(20, "", ji_post)
+		if (jf >= 0) inst[jf,"a"] = ic
 	} else if (t == 110) {
 		tp++
 		if (pt() != 230 && pt() != 6 && pt() != 233)
@@ -342,7 +395,6 @@ function p_stmt(t, jf, jmp, ji) {
 		eat_semi()
 	} else {
 		p_expr()
-		emit(2, pv(), 0)
 		eat_semi()
 	}
 }
@@ -381,12 +433,37 @@ function p_expr() {
 	p_assign()
 }
 
-function p_assign(t, nm) {
+function p_assign(t, nm, op) {
 	p_ternary()
+	t = pt()
+	if (t == 206) {
+		nm = inst[ic-1,"v"]
+		ic--
+		tp++
+		p_expr()
+		emit(2, nm, 0)
+	} else if (t == 207 || t == 208 || t == 209 || t == 210 || t == 211 || t == 212) {
+		nm = inst[ic-1,"v"]
+		op = (t == 207 ? 3 : t == 208 ? 4 : t == 209 ? 5 : t == 210 ? 6 : t == 211 ? 7 : 8)
+		tp++
+		p_expr()
+		emit(op, "", 0)
+		emit(2, nm, 0)
+	}
 }
 
-function p_ternary() {
+function p_ternary(jf, jmp) {
 	p_or()
+	if (pt() == 224) {
+		tp++
+		jf = emit(21, "", 0)
+		p_expr()
+		eat(225)
+		jmp = emit(20, "", 0)
+		inst[jf,"a"] = ic
+		p_expr()
+		inst[jmp,"a"] = ic
+	}
 }
 
 function p_or(jf, jmp) {
@@ -437,6 +514,7 @@ function p_cmp(t) {
 	} else if (t == 218) { tp++; p_concat(); emit(13, "", 0)
 	} else if (t == 219) { tp++; p_concat(); emit(14, "", 0)
 	} else if (t == 220) { tp++; p_concat(); emit(15, "", 0)
+	} else if (t == 106) { tp++; emit(0, pv(), 0); eat(4); emit(32, "", 0)
 	}
 }
 
@@ -485,16 +563,24 @@ function p_pow() {
 	}
 }
 
-function p_postfix(nm, ac) {
+function p_postfix(nm) {
 	p_primary()
 	if (pt() == 213) {
 		tp++
+		nm = inst[ic-1,"v"]
+		emit(1, nm, 0)
 		emit(0, 1, 0)
 		emit(3, "", 0)
+		emit(2, nm, 0)
+		emit(35, "", 0)
 	} else if (pt() == 214) {
 		tp++
+		nm = inst[ic-1,"v"]
+		emit(1, nm, 0)
 		emit(0, 1, 0)
 		emit(4, "", 0)
+		emit(2, nm, 0)
+		emit(35, "", 0)
 	}
 }
 
@@ -503,7 +589,7 @@ function p_primary(t, v, ac, i) {
 	v = pv()
 	if (t == 1) {
 		tp++
-		emit(0, v, 0)
+		emit(0, v+0, 0)
 	} else if (t == 2) {
 		tp++
 		emit(0, v, 0)
@@ -526,7 +612,13 @@ function p_primary(t, v, ac, i) {
 			tp++
 			p_expr()
 			eat(237)
-			emit(1, v, 1)
+			if (pt() == 206) {
+				tp++
+				p_expr()
+				emit(36, v, 0)
+			} else {
+				emit(1, v, 1)
+			}
 		} else {
 			emit(1, v, 0)
 		}
@@ -731,6 +823,11 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			var[v] = r
 			vm_push(r)
 			i++
+		} else if (op == 36) {
+			r = vm_pop(); k = vm_pop()
+			arr[v,k] = r
+			vm_push(r)
+			i++
 		} else if (op == 3) {
 			r = vm_pop(); l = vm_pop(); vm_push(l + r); i++
 		} else if (op == 4) {
@@ -769,7 +866,7 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			i = a
 		} else if (op == 21) {
 			b = vm_pop()
-			if (b) i = a; else i++
+			if (!b) i = a; else i++
 		} else if (op == 22) {
 			nm = v
 			ac = a
@@ -793,12 +890,15 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			i++
 		} else if (op == 25) {
 			ac = a
-			r = ""
-			for (j = ac; j >= 1; j--) {
-				if (j < ac) r = " " r
-				r = vm_pop() r
-			}
-			printf r
+			for (j = ac; j >= 1; j--) pfarg[j] = vm_pop()
+			if      (ac == 1) printf pfarg[1]
+			else if (ac == 2) printf pfarg[1], pfarg[2]
+			else if (ac == 3) printf pfarg[1], pfarg[2], pfarg[3]
+			else if (ac == 4) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4]
+			else if (ac == 5) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4], pfarg[5]
+			else if (ac == 6) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4], pfarg[5], pfarg[6]
+			else if (ac == 7) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4], pfarg[5], pfarg[6], pfarg[7]
+			else if (ac == 8) printf pfarg[1], pfarg[2], pfarg[3], pfarg[4], pfarg[5], pfarg[6], pfarg[7], pfarg[8]
 			i++
 		} else if (op == 26) {
 			r = vm_pop(); l = vm_pop()
@@ -807,7 +907,8 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			r = vm_pop(); l = vm_pop()
 			vm_push((l !~ r) ? 1 : 0); i++
 		} else if (op == 28) {
-			next
+			vm_next = 1
+			return
 		} else if (op == 29) {
 			r = vm_pop(); exit r
 		} else if (op == 30) {
@@ -819,12 +920,17 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			fields[j] = r
 			i++
 		} else if (op == 32) {
-			k = vm_pop(); nm = vm_pop()
+			nm = vm_pop(); k = vm_pop()
 			vm_push((nm SUBSEP k) in arr ? 1 : 0)
 			i++
 		} else if (op == 33) {
 			nm = vm_pop()
 			delete arr[nm]
+			i++
+		} else if (op == 34) {
+			return
+		} else if (op == 35) {
+			sv--
 			i++
 		} else {
 			printf "vm: unknown opcode %d\n", op | "cat >&2"
@@ -833,7 +939,7 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 	}
 }
 
-function vm_run_call(nm, ac, j, save_sv, args, k) {
+function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 	if (nm == "length") {
 		if (ac == 0) vm_push(length(fields[0]))
 		else { l = vm_pop(); vm_push(length(l)) }
@@ -846,20 +952,30 @@ function vm_run_call(nm, ac, j, save_sv, args, k) {
 		r = vm_pop(); l = vm_pop(); vm_push(index(l, r)); return
 	} else if (nm == "split") {
 		r = vm_pop(); l = vm_pop()
-		vm_push(split(l, arr[r], " ")); return
+		delete sptmp
+		n = split(l, sptmp, " ")
+		for (j = 1; j <= n; j++) arr[r, j] = sptmp[j]
+		vm_push(n); return
 	} else if (nm == "sprintf") {
-		r = ""
-		for (j = ac; j >= 1; j--) r = vm_pop() " " r
-		vm_push(sprintf(r)); return
-	} else if (nm == "sin")  { vm_push(sin(vm_pop()));  return
-	} else if (nm == "cos")  { vm_push(cos(vm_pop()));  return
-	} else if (nm == "exp")  { vm_push(exp(vm_pop()));  return
-	} else if (nm == "log")  { vm_push(log(vm_pop()));  return
+		for (j = ac; j >= 1; j--) sparg[j] = vm_pop()
+		if (ac == 1) r = sprintf(sparg[1])
+		else if (ac == 2) r = sprintf(sparg[1], sparg[2])
+		else if (ac == 3) r = sprintf(sparg[1], sparg[2], sparg[3])
+		else if (ac == 4) r = sprintf(sparg[1], sparg[2], sparg[3], sparg[4])
+		else if (ac == 5) r = sprintf(sparg[1], sparg[2], sparg[3], sparg[4], sparg[5])
+		else if (ac == 6) r = sprintf(sparg[1], sparg[2], sparg[3], sparg[4], sparg[5], sparg[6])
+		else if (ac == 7) r = sprintf(sparg[1], sparg[2], sparg[3], sparg[4], sparg[5], sparg[6], sparg[7])
+		else if (ac == 8) r = sprintf(sparg[1], sparg[2], sparg[3], sparg[4], sparg[5], sparg[6], sparg[7], sparg[8])
+		vm_push(r); return
+	} else if (nm == "sin") { vm_push(sin(vm_pop())); return
+	} else if (nm == "cos") { vm_push(cos(vm_pop())); return
+	} else if (nm == "exp") { vm_push(exp(vm_pop())); return
+	} else if (nm == "log") { vm_push(log(vm_pop())); return
 	} else if (nm == "sqrt") { vm_push(sqrt(vm_pop())); return
-	} else if (nm == "int")  { vm_push(int(vm_pop()));  return
-	} else if (nm == "rand") { vm_push(rand());         return
-	} else if (nm == "srand"){ srand(vm_pop());         return
-	} else if (nm == "atan2"){ r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
+	} else if (nm == "int") { vm_push(int(vm_pop())); return
+	} else if (nm == "rand") { vm_push(rand()); return
+	} else if (nm == "srand") { srand(vm_pop()); return
+	} else if (nm == "atan2") { r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
 	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
 	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
 	}
@@ -867,14 +983,23 @@ function vm_run_call(nm, ac, j, save_sv, args, k) {
 		printf "vm: undefined function %s\n", nm | "cat >&2"
 		exit 1
 	}
-	save_sv = sv
+	save_sv  = sv
+	save_ret = ret
+	call_depth++
+	cd = call_depth
 	for (j = 0; j < ac; j++) args[j] = stk[sv - ac + 1 + j]
 	sv -= ac
-	for (j = 0; j < fna[nm]; j++) var[fnp[nm,j]] = (j < ac ? args[j] : "")
+	for (j = 0; j < fna[nm]; j++) {
+		save_var[cd,j] = var[fnp[nm,j]]
+		var[fnp[nm,j]] = (j < ac ? args[j] : "")
+	}
 	vm_run(fn[nm])
-	vm_push(ret)
-	sv = save_sv - ac + 1
-	stk[sv] = ret
+	local_ret = ret
+	for (j = 0; j < fna[nm]; j++) var[fnp[nm,j]] = save_var[cd,j]
+	call_depth--
+	ret = save_ret
+	sv = save_sv - ac
+	vm_push(local_ret)
 }
 
 BEGIN {
@@ -885,6 +1010,7 @@ BEGIN {
 	tp   = 0
 	ic   = 0
 	sv   = 0
+	rc   = 0
 }
 
 {
@@ -897,5 +1023,51 @@ END {
 	tp = 0
 	p_program()
 	if ("BEGIN" in fn) vm_run(fn["BEGIN"])
+	if (rc > 0) {
+		nr = 0
+		if (ARGC > 2) {
+			for (ai = 2; ai < ARGC; ai++) {
+				fn_input = ARGV[ai]
+				while ((getline rec < fn_input) > 0) {
+					nr++
+					var["NR"]  = nr
+					var["FNR"] = nr - (ai - 2) * nr
+					fs_split(rec, " ")
+					var["NF"] = nf
+					for (fi = 0; fi <= nf; fi++) var["$" fi] = fields[fi]
+					for (ri = 0; ri < rc; ri++) {
+						vm_next = 0
+						if (rules[ri,"type"] == "u") {
+							vm_run(rules[ri,"entry"])
+						} else if (rules[ri,"type"] == "r") {
+							if (rec ~ rules[ri,"pat"])
+								vm_run(rules[ri,"entry"])
+						}
+						if (vm_next) break
+					}
+				}
+				close(fn_input)
+			}
+		} else {
+			while ((getline rec < "/dev/stdin") > 0) {
+				nr++
+				var["NR"]  = nr
+				var["FNR"] = nr
+				fs_split(rec, " ")
+				var["NF"] = nf
+				for (fi = 0; fi <= nf; fi++) var["$" fi] = fields[fi]
+				for (ri = 0; ri < rc; ri++) {
+					vm_next = 0
+					if (rules[ri,"type"] == "u") {
+						vm_run(rules[ri,"entry"])
+					} else if (rules[ri,"type"] == "r") {
+						if (rec ~ rules[ri,"pat"])
+							vm_run(rules[ri,"entry"])
+					}
+					if (vm_next) break
+				}
+			}
+		}
+	}
 	if ("END" in fn) vm_run(fn["END"])
 }
