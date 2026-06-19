@@ -60,7 +60,6 @@ BEGIN {
 	assert("regex-match",    ("hello" ~ /ell/),  1)
 	assert("regex-nomatch",  ("hello" !~ /xyz/), 1)
 	assert("sprintf", sprintf("%d+%d=%d", 1, 2, 3), "1+2=3")
-
 	input[1] = "pass alpha"
 	input[2] = "pass beta"
 	input[3] = "fail gamma"
@@ -72,11 +71,25 @@ BEGIN {
 			n = split(line, f)
 			pass_last = f[2]
 		}
-		if (line ~ /^fail/) {
-			nr_fail++
-		}
+		if (line ~ /^fail/) nr_fail++
 	}
 	assert("rule-pass-count", nr_pass,   2)
 	assert("rule-fail-count", nr_fail,   2)
 	assert("pass-field2",     pass_last, "beta")
+	m["a"] = 10; m["b"] = 20; m["c"] = 30
+	forin_sum = 0
+	forin_n = 0
+	for (k in m) {
+		forin_sum += m[k]
+		forin_n++
+	}
+	assert("forin-count", forin_n,   3)
+	assert("forin-sum",   forin_sum, 60)
+	for (k in m) m[k] = m[k] * 2
+	s2 = 0
+	for (k in m) s2 += m[k]
+	assert("forin-mutate", s2, 120)
+	outer_n = 0
+	for (k in m) outer_n++
+	assert("forin-reuse", outer_n, 3)
 }

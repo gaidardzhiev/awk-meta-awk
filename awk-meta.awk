@@ -112,10 +112,10 @@ function lx_one(c, c2, t, v) {
 		tc++
 		return
 	}
-	c  = substr(src, sp, 1)
+	c = substr(src, sp, 1)
 	c2 = substr(src, sp+1, 1)
-	t  = -1
-	v  = ""
+	t = -1
+	v = ""
 	if (c == "\n") {
 		t = 6; v = "\n"; sp++
 	} else if (c ~ /[0-9]/ || (c == "." && c2 ~ /[0-9]/)) {
@@ -202,6 +202,10 @@ function pv()  {
 	return tok[tp,"v"]
 }
 
+function pt2() {
+	return tok[tp+1,"t"]
+}
+
 function skip_nl() {
 	while (pt() == 6) tp++
 }
@@ -255,8 +259,8 @@ function p_program(t, pat, entry) {
 			p_block()
 			emit(34, "", 0)
 			eat(233)
-			rules[rc,"pat"]   = pat
-			rules[rc,"type"]  = "r"
+			rules[rc,"pat"] = pat
+			rules[rc,"type"] = "r"
 			rules[rc,"entry"] = entry
 			rc++
 		} else if (t == 232) {
@@ -345,25 +349,40 @@ function p_stmt(t, jf, jmp, ji) {
 	} else if (t == 105) {
 		tp++
 		eat(234)
-		if (pt() != 230) p_expr()
-		eat_semi()
-		ji_cond = ic
-		if (pt() != 230) {
-			p_expr()
+		if (pt() == 4 && pt2() == 106) {
+			kv = pv(); eat(4)
+			eat(106)
+			av = pv(); eat(4)
+			eat(235)
+			emit(37, av, kv)
+			ji = ic
+			emit(38, "", 0)
 			jf = emit(21, "", 0)
-		} else {
-			jf = -1
-		}
-		eat_semi()
-		jmp_body = emit(20, "", 0)
-		ji_post = ic
-		if (pt() != 235) p_expr()
-		eat(235)
-		emit(20, "", ji_cond)
-		inst[jmp_body,"a"] = ic
-		p_body()
-		emit(20, "", ji_post)
-		if (jf >= 0) inst[jf,"a"] = ic
+			emit(39, kv, 0)
+			p_body()
+			emit(20, "", ji)
+			inst[jf,"a"] = ic
+			} else {
+				if (pt() != 230) p_expr()
+				eat_semi()
+				ji_cond = ic
+				if (pt() != 230) {
+					p_expr()
+					jf = emit(21, "", 0)
+				} else {
+					jf = -1
+				}
+				eat_semi()
+				jmp_body = emit(20, "", 0)
+				ji_post = ic
+				if (pt() != 235) p_expr()
+				eat(235)
+				emit(20, "", ji_cond)
+				inst[jmp_body,"a"] = ic
+				p_body()
+				emit(20, "", ji_post)
+				if (jf >= 0) { inst[jf,"a"] = ic }
+			}
 	} else if (t == 110) {
 		tp++
 		if (pt() != 230 && pt() != 6 && pt() != 233)
@@ -852,11 +871,11 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 		} else if (op == 11) {
 			r = vm_pop(); l = vm_pop(); vm_push(l != r ? 1 : 0); i++
 		} else if (op == 12) {
-			r = vm_pop(); l = vm_pop(); vm_push(l <  r ? 1 : 0); i++
+			r = vm_pop(); l = vm_pop(); vm_push(l < r ? 1 : 0); i++
 		} else if (op == 13) {
 			r = vm_pop(); l = vm_pop(); vm_push(l <= r ? 1 : 0); i++
 		} else if (op == 14) {
-			r = vm_pop(); l = vm_pop(); vm_push(l >  r ? 1 : 0); i++
+			r = vm_pop(); l = vm_pop(); vm_push(l > r ? 1 : 0); i++
 		} else if (op == 15) {
 			r = vm_pop(); l = vm_pop(); vm_push(l >= r ? 1 : 0); i++
 		} else if (op == 16) {
@@ -937,6 +956,36 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 		} else if (op == 35) {
 			sv--
 			i++
+		} else if (op == 37) {
+			forin_depth++
+			fd = forin_depth
+			forin_cnt[fd] = 0
+			forin_arr[fd] = v
+			forin_var[fd] = a
+			pfx = v SUBSEP
+			plen = length(pfx)
+			for (fk in arr) {
+				if (substr(fk, 1, plen) == pfx) {
+					forin_keys[fd, forin_cnt[fd]] = substr(fk, plen + 1)
+					forin_cnt[fd]++
+				}
+			}
+			forin_idx[fd] = 0
+			i++
+		} else if (op == 38) {
+			fd = forin_depth
+			if (forin_idx[fd] < forin_cnt[fd]) {
+				vm_push(1)
+			} else {
+				vm_push(0)
+				forin_depth--
+			}
+			i++
+		} else if (op == 39) {
+			fd = forin_depth
+			var[v] = forin_keys[fd, forin_idx[fd]]
+			forin_idx[fd]++
+			i++
 		} else {
 			printf "vm: unknown opcode %d\n", op | "cat >&2"
 			exit 1
@@ -979,8 +1028,8 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 	} else if (nm == "sqrt") { vm_push(sqrt(vm_pop())); return
 	} else if (nm == "int") { vm_push(int(vm_pop())); return
 	} else if (nm == "rand") { vm_push(rand()); return
-	} else if (nm == "srand"){ srand(vm_pop()); return
-	} else if (nm == "atan2"){ r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
+	} else if (nm == "srand") { srand(vm_pop()); return
+	} else if (nm == "atan2") { r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
 	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
 	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
 	}
