@@ -100,6 +100,7 @@ What the interpreter currently executes correctly, verified against GNU Awk 5.3.
 **Functions**
 - User defined functions with positional parameters and local variables (extra params)
 - Recursion with correct parameter isolation across call depth
+- Pass by reference arrays in user defined functions
 - Built ins: `print`, `printf`, `sprintf` (up to 8 args), `substr`, `index`, `length`, `split`, `tolower`, `toupper`, `sin`, `cos`, `atan2`, `log`, `exp`, `sqrt`, `int`, `rand`, `srand`
 
 **Program structure**
@@ -119,7 +120,7 @@ What the interpreter currently executes correctly, verified against GNU Awk 5.3.
 - `delete arr` (whole array)
 - `printf` / `print` to file or pipe (`> "file"`, `| "cmd"`)
 - `FILENAME`, `FS`, `OFS`, `ORS`, `RS` special variables
-- Pass by reference arrays in user defined functions
+- ~~Pass by reference arrays in user defined functions~~
 
 ## License
 
