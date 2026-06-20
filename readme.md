@@ -47,7 +47,7 @@ What you see is awk. What runs is your awk interpreter in awk.
 
 ## The implementation
 
-[awk-meta.awk](./awk-meta.awk) is the single file. It will contain:
+[awk-meta.awk](./awk-meta.awk) will contain:
 
 1. **Lexer**: single `lx_one` function consuming one token at a time from a byte buffer. Identifies keywords via string comparison against null-terminated keyword strings. Returns a token structure allocated from a bump arena.
 
