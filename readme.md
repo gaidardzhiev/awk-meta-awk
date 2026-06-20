@@ -79,6 +79,7 @@ What the interpreter currently executes correctly, verified against GNU Awk 5.3.
 - Increment/decrement: prefix `++x` `--x`, postfix `x++` `x--`
 - Regex match: `~` `!~` with literal `/pat/` or string
 - Array membership: `k in arr`
+- Iteration: `for (k in arr)`
 - Unary negation: `-x`
 
 **Variables and arrays**
@@ -112,7 +113,7 @@ What the interpreter currently executes correctly, verified against GNU Awk 5.3.
 - Context sensitive `/` disambiguation: lexed as regex literal after `=` `~` `!~` `(` `,` `{` `;` `print` `return`, otherwise as division
 
 **Not yet implemented**
-- `for (k in arr)` iteration
+~~- `for (k in arr)` iteration~~
 - `sub()`, `gsub()`, `match()`
 - `getline` in expression context
 - `delete arr` (whole array)
