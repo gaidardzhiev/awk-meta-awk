@@ -113,7 +113,7 @@ What the interpreter currently executes correctly, verified against GNU Awk 5.3.
 - Context sensitive `/` disambiguation: lexed as regex literal after `=` `~` `!~` `(` `,` `{` `;` `print` `return`, otherwise as division
 
 **Not yet implemented**
-~~- `for (k in arr)` iteration~~
+- ~~`for (k in arr)` iteration~~
 - `sub()`, `gsub()`, `match()`
 - `getline` in expression context
 - `delete arr` (whole array)
