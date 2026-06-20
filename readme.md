@@ -67,7 +67,7 @@ Runtime provides internal functions, registered in function table and called via
 
 ## Implementation status
 
-What the interpreter currently executes correctly, verified against GNU Awk 5.3.2.
+What the interpreter currently executes correctly, verified against [GNU Awk 5.3.2](https://ftp.gnu.org/gnu/gawk/gawk-5.3.2.tar.gz).
 
 **Expressions**
 - Arithmetic: `+` `-` `*` `/` `%` `^`
