@@ -16,6 +16,16 @@ function fib(n) {
 	return fib(n - 1) + fib(n - 2)
 }
 
+function fill(out, n, i) {
+	for (i = 1; i <= n; i++) out[i] = i * 10
+}
+
+function sum_arr(inp, n, i, s) {
+	s = 0
+	for (i = 1; i <= n; i++) s += inp[i]
+	return s
+}
+
 BEGIN {
 	assert("add",        2 + 3,        5)
 	assert("sub",        10 - 4,       6)
@@ -92,4 +102,10 @@ BEGIN {
 	outer_n = 0
 	for (k in m) outer_n++
 	assert("forin-reuse", outer_n, 3)
+	fill(result, 4)
+	assert("pbr-fill-1", result[1], 10)
+	assert("pbr-fill-4", result[4], 40)
+	assert("pbr-sum", sum_arr(result, 4), 100)
+
 }
+

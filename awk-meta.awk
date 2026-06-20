@@ -39,9 +39,9 @@ function lx_num(s, c) {
 	while (sp <= slen) {
 		c = substr(src, sp, 1)
 		if (c ~ /[0-9]/ || (c == "." && index(s, ".") == 0) ||
-		    ((c == "e" || c == "E") && length(s) > 0) ||
-		    ((c == "+" || c == "-") && length(s) > 0 &&
-		     (substr(s, length(s), 1) == "e" || substr(s, length(s), 1) == "E"))) {
+		 ((c == "e" || c == "E") && length(s) > 0) ||
+		 ((c == "+" || c == "-") && length(s) > 0 &&
+		 (substr(s, length(s), 1) == "e" || substr(s, length(s), 1) == "E"))) {
 			s = s c
 			sp++
 		} else
@@ -181,9 +181,9 @@ function lx_all(i, prev_t) {
 		lx_one()
 		if (tok[tc-1,"t"] == 203) {
 			if (prev_t == 0 || prev_t == 226 || prev_t == 227 ||
-			    prev_t == 206 || prev_t == 231 || prev_t == 234 ||
-			    prev_t == 232 || prev_t == 230 || prev_t == 6 ||
-			    prev_t == 111 || prev_t == 112) {
+			 prev_t == 206 || prev_t == 231 || prev_t == 234 ||
+			 prev_t == 232 || prev_t == 230 || prev_t == 6 ||
+			 prev_t == 111 || prev_t == 112) {
 				sp--
 				tok[tc-1,"t"] = 3
 				tok[tc-1,"v"] = lx_re()
@@ -194,11 +194,11 @@ function lx_all(i, prev_t) {
 	lx_one()
 }
 
-function pt()  {
+function pt() {
 	return tok[tp,"t"]
 }
 
-function pv()  {
+function pv() {
 	return tok[tp,"v"]
 }
 
@@ -225,8 +225,8 @@ function eat_semi() {
 function emit(op, v, a, i) {
 	i = ic
 	inst[i,"op"] = op
-	inst[i,"v"]  = v
-	inst[i,"a"]  = a
+	inst[i,"v"] = v
+	inst[i,"a"] = a
 	ic++
 	return i
 }
@@ -269,7 +269,7 @@ function p_program(t, pat, entry) {
 			p_block()
 			emit(34, "", 0)
 			eat(233)
-			rules[rc,"type"]  = "u"
+			rules[rc,"type"] = "u"
 			rules[rc,"entry"] = entry
 			rc++
 		} else {
@@ -620,10 +620,16 @@ function p_primary(t, v, ac, i) {
 		if (pt() == 234) {
 			tp++
 			ac = 0
+			is_builtin = (v == "split" || v == "sprintf" || v == "substr" || \
+				v == "index" || v == "length" || v == "tolower" || v == "toupper" || \
+				v == "sin" || v == "cos" || v == "atan2" || v == "log" || \
+				v == "exp" || v == "sqrt" || v == "int" || v == "rand" || v == "srand")
 			while (pt() != 235) {
 				if (ac > 0) eat(231)
 				if (v == "split" && ac == 1) {
-					emit(0, pv(), 0)
+					emit(0, pv(), 0); eat(4)
+				} else if (!is_builtin && pt() == 4 && (tok[tp+1,"t"] == 231 || tok[tp+1,"t"] == 235)) {
+					emit(0, "\x01" pv(), 0)
 					eat(4)
 				} else {
 					p_expr()
@@ -746,12 +752,12 @@ function re_atom(nc, c, s) {
 		re_pos++
 		s = nc++
 		nfa[s,"op"] = 0
-		nfa[s,"c"]  = c
+		nfa[s,"c"] = c
 		return s
 	} else {
 		s = nc++
 		nfa[s,"op"] = 0
-		nfa[s,"c"]  = c
+		nfa[s,"c"] = c
 		return s
 	}
 }
@@ -769,14 +775,14 @@ function re_class(nc, s, cls, c) {
 		if (c == "]") break
 		cls = cls c
 	}
-	nfa[s,"op"]  = 4
+	nfa[s,"op"] = 4
 	nfa[s,"cls"] = cls
 	return s
 }
 
 function re_match(str, start, nfa_start, pos, c, st) {
 	pos = start
-	st  = nfa_start
+	st = nfa_start
 	while (st != -1 && pos <= length(str)) {
 		c = substr(str, pos, 1)
 		if (nfa[st,"op"] == 0) {
@@ -822,7 +828,7 @@ function vm_push(v) {
 	stk[++sv] = v
 }
 
-function vm_pop()   {
+function vm_pop() {
 	return stk[sv--]
 }
 
@@ -830,15 +836,16 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 	i = entry
 	while (1) {
 		op = inst[i,"op"]
-		v  = inst[i,"v"]
-		a  = inst[i,"a"]
+		v = inst[i,"v"]
+		a = inst[i,"a"]
 		if (op == 0) {
 			vm_push(v)
 			i++
 		} else if (op == 1) {
 			if (a == 1) {
 				k = vm_pop()
-				vm_push(arr[v, k])
+				nm = (alias[v] != "" ? alias[v] : v)
+				vm_push(arr[nm, k])
 			} else
 				vm_push(var[v])
 			i++
@@ -849,7 +856,8 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			i++
 		} else if (op == 36) {
 			r = vm_pop(); k = vm_pop()
-			arr[v,k] = r
+			nm = (alias[v] != "" ? alias[v] : v)
+			arr[nm,k] = r
 			vm_push(r)
 			i++
 		} else if (op == 3) {
@@ -945,6 +953,7 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			i++
 		} else if (op == 32) {
 			nm = vm_pop(); k = vm_pop()
+			nm = (alias[nm] != "" ? alias[nm] : nm)
 			vm_push((nm SUBSEP k) in arr ? 1 : 0)
 			i++
 		} else if (op == 33) {
@@ -960,9 +969,10 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			forin_depth++
 			fd = forin_depth
 			forin_cnt[fd] = 0
-			forin_arr[fd] = v
+			nm = (alias[v] != "" ? alias[v] : v)
+			forin_arr[fd] = nm
 			forin_var[fd] = a
-			pfx = v SUBSEP
+			pfx = nm SUBSEP
 			plen = length(pfx)
 			for (fk in arr) {
 				if (substr(fk, 1, plen) == pfx) {
@@ -1006,6 +1016,7 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 		r = vm_pop(); l = vm_pop(); vm_push(index(l, r)); return
 	} else if (nm == "split") {
 		r = vm_pop(); l = vm_pop()
+		if (substr(r, 1, 1) == "\x01") r = substr(r, 2)
 		delete sptmp
 		n = split(l, sptmp, " ")
 		for (j = 1; j <= n; j++) arr[r, j] = sptmp[j]
@@ -1028,8 +1039,8 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 	} else if (nm == "sqrt") { vm_push(sqrt(vm_pop())); return
 	} else if (nm == "int") { vm_push(int(vm_pop())); return
 	} else if (nm == "rand") { vm_push(rand()); return
-	} else if (nm == "srand") { srand(vm_pop()); return
-	} else if (nm == "atan2") { r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
+	} else if (nm == "srand"){ srand(vm_pop()); return
+	} else if (nm == "atan2"){ r = vm_pop(); l = vm_pop(); vm_push(atan2(l,r)); return
 	} else if (nm == "tolower") { vm_push(tolower(vm_pop())); return
 	} else if (nm == "toupper") { vm_push(toupper(vm_pop())); return
 	}
@@ -1037,19 +1048,32 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 		printf "vm: undefined function %s\n", nm | "cat >&2"
 		exit 1
 	}
-	save_sv  = sv
+	save_sv = sv
 	save_ret = ret
 	call_depth++
 	cd = call_depth
 	for (j = 0; j < ac; j++) args[j] = stk[sv - ac + 1 + j]
 	sv -= ac
 	for (j = 0; j < fna[nm]; j++) {
-		save_var[cd,j] = var[fnp[nm,j]]
-		var[fnp[nm,j]] = (j < ac ? args[j] : "")
+		pnm = fnp[nm,j]
+		save_var[cd,j] = var[pnm]
+		save_alias[cd,j] = alias[pnm]
+		if (j < ac && substr(args[j], 1, 1) == "\x01") {
+			caller_nm = substr(args[j], 2)
+			alias[pnm] = caller_nm
+			var[pnm] = var[caller_nm]
+		} else {
+			alias[pnm] = ""
+			var[pnm] = (j < ac ? args[j] : "")
+		}
 	}
 	vm_run(fn[nm])
 	local_ret = ret
-	for (j = 0; j < fna[nm]; j++) var[fnp[nm,j]] = save_var[cd,j]
+	for (j = 0; j < fna[nm]; j++) {
+		pnm = fnp[nm,j]
+		var[pnm] = save_var[cd,j]
+		alias[pnm] = save_alias[cd,j]
+	}
 	call_depth--
 	ret = save_ret
 	sv = save_sv - ac
@@ -1058,13 +1082,13 @@ function vm_run_call(nm, ac, j, save_sv, args, k, cd, local_ret, save_ret) {
 
 BEGIN {
 	kw_init()
-	src  = ""
+	src = ""
 	slen = 0
-	tc   = 0
-	tp   = 0
-	ic   = 0
-	sv   = 0
-	rc   = 0
+	tc = 0
+	tp = 0
+	ic = 0
+	sv = 0
+	rc = 0
 }
 
 {
@@ -1084,7 +1108,7 @@ END {
 				fn_input = ARGV[ai]
 				while ((getline rec < fn_input) > 0) {
 					nr++
-					var["NR"]  = nr
+					var["NR"] = nr
 					var["FNR"] = nr - (ai - 2) * nr
 					fs_split(rec, " ")
 					var["NF"] = nf
@@ -1105,7 +1129,7 @@ END {
 		} else {
 			while ((getline rec < "/dev/stdin") > 0) {
 				nr++
-				var["NR"]  = nr
+				var["NR"] = nr
 				var["FNR"] = nr
 				fs_split(rec, " ")
 				var["NF"] = nf
