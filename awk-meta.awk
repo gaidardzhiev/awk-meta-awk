@@ -26,6 +26,8 @@ function lx_skip(c) {
 		c = substr(src, sp, 1)
 		if (c == " " || c == "\t" || c == "\r")
 			sp++
+		else if (c == "\\" && substr(src, sp+1, 1) == "\n")
+			sp += 2
 		else if (c == "#") {
 			while (sp <= slen && substr(src, sp, 1) != "\n")
 				sp++
@@ -179,6 +181,15 @@ function lx_all(i, prev_t) {
 	prev_t = 0
 	while (sp <= slen) {
 		lx_one()
+		if (tok[tc-1,"t"] == 6 && (prev_t == 200 || prev_t == 201 || prev_t == 202 || prev_t == 203 ||
+		 prev_t == 204 || prev_t == 205 || prev_t == 206 || prev_t == 207 || prev_t == 208 ||
+		 prev_t == 209 || prev_t == 210 || prev_t == 211 || prev_t == 212 || prev_t == 215 ||
+		 prev_t == 216 || prev_t == 217 || prev_t == 218 || prev_t == 219 || prev_t == 220 ||
+		 prev_t == 221 || prev_t == 222 || prev_t == 223 || prev_t == 224 || prev_t == 225 ||
+		 prev_t == 226 || prev_t == 227 || prev_t == 228 || prev_t == 231)) {
+			tc--
+			continue
+		}
 		if (tok[tc-1,"t"] == 203) {
 			if (prev_t == 0 || prev_t == 226 || prev_t == 227 ||
 			 prev_t == 206 || prev_t == 231 || prev_t == 234 ||
@@ -327,6 +338,7 @@ function p_stmt(t, jf, jmp, ji) {
 		eat(235)
 		jf = emit(21, "", 0)
 		p_body()
+		skip_nl()
 		if (pt() == 103) {
 			tp++
 			jmp = emit(20, "", 0)
@@ -418,6 +430,14 @@ function p_stmt(t, jf, jmp, ji) {
 	}
 }
 
+function p_output_redir() {
+	if (pt() == 217 || pt() == 219 || pt() == 228 || pt() == 229) {
+		tp++
+		p_expr()
+		emit(35, "", 0)
+	}
+}
+
 function p_print(ac, i) {
 	eat(111)
 	ac = 0
@@ -430,6 +450,7 @@ function p_print(ac, i) {
 			ac++
 		}
 	}
+	p_output_redir()
 	emit(24, "", ac)
 	eat_semi()
 }
@@ -444,6 +465,7 @@ function p_printf(ac) {
 		p_expr()
 		ac++
 	}
+	p_output_redir()
 	emit(25, "", ac)
 	eat_semi()
 }
@@ -641,6 +663,13 @@ function p_primary(t, v, ac, i) {
 		} else if (pt() == 236) {
 			tp++
 			p_expr()
+			while (pt() == 231) {
+				tp++
+				emit(0, SUBSEP, 0)
+				emit(9, "", 0)
+				p_expr()
+				emit(9, "", 0)
+			}
 			eat(237)
 			if (pt() == 206) {
 				tp++
@@ -652,6 +681,17 @@ function p_primary(t, v, ac, i) {
 		} else {
 			emit(1, v, 0)
 		}
+	} else if (t == 113) {
+		tp++
+		v = "$0"
+		if (pt() == 4) { v = pv(); eat(4) }
+		if (pt() == 217) {
+			tp++
+			p_expr()
+		} else {
+			emit(0, "/dev/stdin", 0)
+		}
+		emit(40, v, 0)
 	} else if (t == 238) {
 		tp++
 		p_primary()
@@ -995,6 +1035,15 @@ function vm_run(entry, i, op, v, a, r, l, b, ac, j, nm, k) {
 			fd = forin_depth
 			var[v] = forin_keys[fd, forin_idx[fd]]
 			forin_idx[fd]++
+			i++
+		} else if (op == 40) {
+			fn_getline = vm_pop()
+			if ((getline rec_getline < fn_getline) > 0) {
+				var[v] = rec_getline
+				vm_push(1)
+			} else {
+				vm_push(0)
+			}
 			i++
 		} else {
 			printf "vm: unknown opcode %d\n", op | "cat >&2"
