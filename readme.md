@@ -85,6 +85,7 @@ What the interpreter currently executes correctly, verified against [GNU Awk 5.3
 **Variables and arrays**
 - Scalar variables with numeric and string semantics
 - Associative arrays: `a[k] = v`, `a[k]` read, `k in a`, `delete a[k]`
+- Multidimensional array syntax via SUBSEP semantics: `a[i,j]`
 - `split(str, arr)` populating an array by whitespace
 
 **Control flow**
@@ -102,6 +103,8 @@ What the interpreter currently executes correctly, verified against [GNU Awk 5.3
 - Recursion with correct parameter isolation across call depth
 - Pass by reference arrays in user defined functions
 - Built ins: `print`, `printf`, `sprintf` (up to 8 args), `substr`, `index`, `length`, `split`, `tolower`, `toupper`, `sin`, `cos`, `atan2`, `log`, `exp`, `sqrt`, `int`, `rand`, `srand`
+- `print` / `printf` to file or pipe (`> "file"`, `| "cmd"`)
+- `getline var < file`
 
 **Program structure**
 - `BEGIN { }` and `END { }` blocks
@@ -112,15 +115,38 @@ What the interpreter currently executes correctly, verified against [GNU Awk 5.3
 
 **Lexer**
 - Context sensitive `/` disambiguation: lexed as regex literal after `=` `~` `!~` `(` `,` `{` `;` `print` `return`, otherwise as division
+- Backslash-newline line continuation
+- Newline tolerance after continuation-sensitive operators
+- Newline before `else`
 
 **Not yet implemented**
 - ~~`for (k in arr)` iteration~~
 - `sub()`, `gsub()`, `match()`
-- `getline` in expression context
 - `delete arr` (whole array)
-- `printf` / `print` to file or pipe (`> "file"`, `| "cmd"`)
 - `FILENAME`, `FS`, `OFS`, `ORS`, `RS` special variables
 - ~~Pass by reference arrays in user defined functions~~
+
+## Self-Hosting
+
+AWK Meta AWK is self-hosting. The interpreter can interpret itself interpreting itself, at arbitrary depth, and still execute a program correctly at the bottom of the stack.
+
+Try it:
+
+```
+./awk-meta.awk $(printf 'awk-meta.awk %.0s' {1..16}) scripts/hello.awk
+```
+
+```
+./awk-meta.awk $(printf 'awk-meta.awk %.0s' {1..16}) scripts/verify.awk
+```
+
+This passes `awk-meta.awk` as both the interpreter and as sixteen successive layers of input. The outermost instance interprets the next, which interprets the next, down sixteen levels, until the innermost instance runs [hello.awk](scripts/hello.awk) and [verify.awk](scripts/verify.awk).
+
+The language implemented here is expressive enough to implement itself. The interpreter is not a special case, a simplified subset, or a demonstration that happens to work on contrived input. It is a complete enough execution environment that another copy of itself can run inside it. That copy can host another and the recursion has no conceptual floor.
+
+In practical terms this means the implementation covers the full language it claims to cover. An interpreter that silently drops half the language will fail to interpret its own source, because the source uses the language. Self-hosting finds the gaps because every construct the parser can emit must be a construct the VM can execute, because the interpreter reads itself and executes what it finds there. It took a bytecode VM, a recursive descent parser, a Thompson NFA regex engine, a manual field splitter, and a calling convention that survives re-entry through multiple interpreted layers.
+
+The depth is not a party trick either. Sixteen levels of meta-interpretation means the bytecode for the outermost interpreter passes through fifteen interpreted dispatch loops before it executes. Each level adds a full interpreter's worth of state on the AWK associative array heap: instruction sequences, stacks, symbol tables, call frames. It is slow in the way that nested interpretation is always slow. What it is not is wrong.
 
 ## License
 
