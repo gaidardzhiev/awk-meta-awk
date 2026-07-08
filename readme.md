@@ -1,6 +1,6 @@
 # AWK Meta AWK
 
-An AWK interpreter written in AWK. Emulates the interpreter structure from scratch while using AWK's built in string, math, and I/O primitives. The implementation reads AWK source code and executes it against input data. It includes a lexer, parser, regex engine, field splitter, virtual machine, and all built in functions. All written in AWK. By virtue of interpreting its own source code, AWK Meta AWK stands not merely as a demonstration of cleverness but as proof that AWK primitives are expressive enough to implement the full AWK language.
+An AWK interpreter written in AWK. It emulates the interpreter structure from scratch while using AWK's built in string, math, and I/O primitives. The implementation reads AWK source code and executes it against input data. It includes a lexer, parser, regex engine, field splitter, virtual machine, and all built in functions. All written in AWK. By virtue of interpreting its own source code, AWK Meta AWK stands not merely as a demonstration of cleverness but as proof that AWK primitives are expressive enough to implement the full AWK language.
 
 ## On the Dilution of Meaning: A Philosophical Inquiry into Semantic Vandalism
 
