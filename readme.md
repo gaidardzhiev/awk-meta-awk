@@ -138,7 +138,7 @@ Try it:
 ./awk-meta.awk $(printf 'awk-meta.awk %.0s' {1..16}) scripts/verify.awk
 ```
 
-This passes `awk-meta.awk` as both the interpreter and as sixteen successive layers of input. The outermost instance interprets the next, which interprets the next, down sixteen levels, until the innermost instance runs [hello.awk](scripts/hello.awk) and [verify.awk](scripts/verify.awk).
+This passes [awk-meta.awk](./awk-meta.awk) as both the interpreter and as sixteen successive layers of input. The outermost instance interprets the next, which interprets the next, down sixteen levels, until the innermost instance runs [hello.awk](scripts/hello.awk) and [verify.awk](scripts/verify.awk).
 
 The language implemented here is expressive enough to implement itself. The interpreter is not a special case, a simplified subset, or a demonstration that happens to work on contrived input. It is a complete enough execution environment that another copy of itself can run inside it. That copy can host another and the recursion has no conceptual floor.
 
